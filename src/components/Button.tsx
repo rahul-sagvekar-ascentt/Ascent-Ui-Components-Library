@@ -8,7 +8,42 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   startIcon?: React.ReactNode;
   endIcon?: React.ReactNode;
   disableRipple?: boolean;
+  loading?: boolean;
+  loadingPosition?: 'start' | 'center' | 'end';
+  loadingIndicator?: React.ReactNode;
 }
+
+const Spinner: React.FC<{ size: 'small' | 'medium' | 'large' }> = ({ size }) => {
+  const sizeMap = {
+    small: 'w-3.5 h-3.5',
+    medium: 'w-4 h-4',
+    large: 'w-5 h-5',
+  };
+
+  return (
+    <svg
+      className={`animate-spin ${sizeMap[size]}`}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
+    </svg>
+  );
+};
 
 export const Button: React.FC<ButtonProps> = ({
   variant = 'contained',
@@ -18,6 +53,9 @@ export const Button: React.FC<ButtonProps> = ({
   startIcon,
   endIcon,
   disableRipple = false,
+  loading = false,
+  loadingPosition = 'center',
+  loadingIndicator,
   className = '',
   disabled,
   onClick,
@@ -27,24 +65,28 @@ export const Button: React.FC<ButtonProps> = ({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [ripples, setRipples] = useState<Array<{ x: number; y: number; id: number }>>([]);
 
+  const isDisabled = disabled || loading;
+
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (!disableRipple && !disabled) {
+    if (!disableRipple && !isDisabled) {
       const button = buttonRef.current;
       if (button) {
         const rect = button.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         const id = Date.now();
-        
+
         setRipples((prev) => [...prev, { x, y, id }]);
-        
+
         setTimeout(() => {
           setRipples((prev) => prev.filter((ripple) => ripple.id !== id));
         }, 600);
       }
     }
-    
-    onClick?.(e);
+
+    if (!loading) {
+      onClick?.(e);
+    }
   };
 
   const sizeStyles = {
@@ -77,11 +119,47 @@ export const Button: React.FC<ButtonProps> = ({
     },
   };
 
+  const loader = loadingIndicator || <Spinner size={size} />;
+
+  const renderContent = () => {
+    if (loading && loadingPosition === 'center') {
+      return (
+        <>
+          <span className="invisible inline-flex items-center gap-2">
+            {startIcon && <span className="inline-flex">{startIcon}</span>}
+            {children}
+            {endIcon && <span className="inline-flex">{endIcon}</span>}
+          </span>
+          <span className="absolute inset-0 flex items-center justify-center">
+            {loader}
+          </span>
+        </>
+      );
+    }
+
+    return (
+      <>
+        {loading && loadingPosition === 'start' ? (
+          <span className="inline-flex">{loader}</span>
+        ) : (
+          startIcon && <span className="inline-flex">{startIcon}</span>
+        )}
+        {children}
+        {loading && loadingPosition === 'end' ? (
+          <span className="inline-flex">{loader}</span>
+        ) : (
+          endIcon && <span className="inline-flex">{endIcon}</span>
+        )}
+      </>
+    );
+  };
+
   return (
     <button
       ref={buttonRef}
-      disabled={disabled}
+      disabled={isDisabled}
       onClick={handleClick}
+      aria-busy={loading}
       className={`
         relative overflow-hidden
         inline-flex items-center justify-center gap-2
@@ -91,7 +169,7 @@ export const Button: React.FC<ButtonProps> = ({
         ${sizeStyles[size]}
         ${colorVariants[variant][color]}
         ${fullWidth ? 'w-full' : ''}
-        ${disabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : 'cursor-pointer'}
+        ${isDisabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : 'cursor-pointer'}
         ${variant === 'contained' ? 'focus:ring-primary-500' : ''}
         ${className}
       `}
@@ -110,10 +188,8 @@ export const Button: React.FC<ButtonProps> = ({
           }}
         />
       ))}
-      
-      {startIcon && <span className="inline-flex">{startIcon}</span>}
-      {children}
-      {endIcon && <span className="inline-flex">{endIcon}</span>}
+
+      {renderContent()}
     </button>
   );
 };
