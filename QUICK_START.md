@@ -12,6 +12,7 @@ npm install
 
 ```bash
 npm run build
+npm pack
 ```
 
 This will create a `dist` folder with the compiled library files.
